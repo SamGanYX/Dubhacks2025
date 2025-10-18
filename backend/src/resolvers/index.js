@@ -5,55 +5,8 @@ import { transcribeMp3, summarizeTranscript, pickRequestType, generateFieldValue
 const resolver = new Resolver();
 
 resolver.define("simulate-voicemail-ai", async () => {
-  try {
-    const mp3Url = "https://raw.githubusercontent.com/SamGanYX/OnlineMP3Save/main/Record2.mp3";
-
-    // 1️⃣ Transcribe
-    const transcript = await transcribeMp3(mp3Url);
-
-    // 2️⃣ Summarize
-    const summary = await summarizeTranscript(transcript);
-
-    // 3️⃣ Get all request types
-    const serviceDeskId = "2";
-    const requestResponse = await api.asApp().requestJira(
-      route`/rest/servicedeskapi/servicedesk/${serviceDeskId}/requesttype`
-    );
-    const requestData = await requestResponse.json();
-    if (!requestResponse.ok) throw requestData;
-
-    // 4️⃣ Pick best request type
-    const chosen = await pickRequestType(summary, requestData.values);
-
-    // 5️⃣ Get request type fields
-    const fieldsResponse = await api.asApp().requestJira(
-      route`/rest/servicedeskapi/requesttype/${chosen.id}/field`
-    );
-    const fieldsData = await fieldsResponse.json();
-    if (!fieldsResponse.ok) throw fieldsData;
-
-    // 6️⃣ Generate field values using AI (all fields)
-    const requestFieldValues = await generateFieldValues(transcript, summary, fieldsData.requestTypeFields);
-
-    // 7️⃣ Create Jira ticket
-    const createResponse = await api.asApp().requestJira(route`/rest/servicedeskapi/request`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        serviceDeskId,
-        requestTypeId: chosen.id,
-        requestFieldValues,
-      }),
-    });
-
-    const data = await createResponse.json();
-    if (!createResponse.ok) throw data;
-
-    return { success: true, issueKey: data.issueKey };
-  } catch (err) {
-    console.error("❌ Error:", err);
-    return { success: false, error: err };
-  }
+  console.error("❌ Error:", err);
+  return { success: false, error: err };
 });
 
 export const webhook = async (event) => {
