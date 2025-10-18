@@ -1,0 +1,56 @@
+modules:
+  webtrigger:
+    - key: voicemail-trigger
+      function: webhook
+      description: Trigger AI voicemail Jira creation
+
+  jiraServiceManagement:portalRequestDetailPanel:
+    - key: voicemail-assistant-panel
+      title: Voicemail Assistant
+      description: Shows AI voicemail data for the request
+      resource: main
+      resolver:
+        function: resolver
+
+  function:
+    - key: resolver
+      handler: index.handler
+    - key: webhook
+      handler: index.webhook
+
+resources:
+  - key: main
+    path: src/frontend
+    tunnel:
+      port: 3000
+
+app:
+  runtime:
+    name: nodejs22.x
+    memoryMB: 256
+    architecture: arm64
+  id: ari:cloud:ecosystem::app/9a4bfc04-8f72-4469-a4a9-ceee6ce926ec
+
+permissions:
+  content:
+    scripts:
+      - unsafe-inline
+    styles:
+      - unsafe-inline
+  external:
+    fetch:
+      backend:
+        - address: https://api.openai.com
+        - address: https://raw.githubusercontent.com
+      client:
+        - address: https://api.openai.com
+        - address: https://raw.githubusercontent.com
+        - address: https://forge.cdn.prod.atlassian-dev.net
+        - address: https://api.atlassian.com
+        - address: https://api.media.atlassian.com
+        - address: https://forge-outbound-proxy.services.atlassian.com
+  scopes:
+    - read:servicedesk-request
+    - write:servicedesk-request
+    - read:jira-work
+    - write:jira-work

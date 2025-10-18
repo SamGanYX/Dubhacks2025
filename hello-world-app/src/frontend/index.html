@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Voicemail Assistant</title>
+    <link rel="stylesheet" href="./node_modules/@atlaskit/css-reset/dist/bundle.css">
+    <style>
+      /* Give the iframe content a min height so Forge iframe expands */
+      html, body, #root {
+        height: 100%;
+        min-height: 500px;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- This script is served by Vite, not raw JSX -->
+    <script type="module" src="/index.jsx"></script>
+  </body>
+</html>
