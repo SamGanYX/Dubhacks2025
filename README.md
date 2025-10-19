@@ -46,7 +46,7 @@ platform/
 Prerequisites (recommended)
 - Node.js 18+ (or as required in package.json)
 - npm or pnpm
-- For platform backend: MongoDB (local or hosted)
+- For platform backend: sqlite (temp solution)
 - For Forge app: Atlassian Forge CLI and a target Atlassian product (for deploy/tunnel)
 - OpenAI API key (or relevant AI provider credentials)
 - Twilio credentials if using Twilio integration
@@ -71,7 +71,7 @@ cd platform
 # Backend
 cd backend
 npm install
-# create .env with required vars (MONGODB_URI, JWT secrets, OPENAI_API_KEY, JIRA credentials, etc.)
+# create .env with required vars (secret keys, Webtrigger links, JIRA credentials, etc.)
 # If scripts/create-table.js exists for a service, run it if needed:
 node scripts/create-table.js
 npm run dev   # or npm start, see platform/backend/package.json
@@ -96,7 +96,7 @@ See platform/README.md for detailed environment variables and deployment notes.
 - Multi-tenant onboarding and company management
 - Webhook-driven processing and integrations (Jira, Twilio)
 - React + Vite frontend with Tailwind CSS
-- Node/Express backend with MongoDB for persistence
+- Node/Express backend with Sqlite (temporary solution) for persistence
 
 ## Development notes
 
@@ -117,6 +117,3 @@ See platform/README.md for detailed environment variables and deployment notes.
 3. Implement and test changes
 4. Submit a pull request with a clear description
 
-## License
-
-MIT
