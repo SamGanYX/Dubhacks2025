@@ -1,6 +1,6 @@
 modules:
   webtrigger:
-    - key: voicemail-trigger
+    - key: voicebot-trigger
       function: webhook
       description: Trigger AI voicemail Jira creation
 
@@ -30,7 +30,6 @@ app:
     memoryMB: 256
     architecture: arm64
   id: ari:cloud:ecosystem::app/9a4bfc04-8f72-4469-a4a9-ceee6ce926ec
-
 permissions:
   content:
     scripts:
@@ -41,6 +40,7 @@ permissions:
     fetch:
       backend:
         - address: https://api.openai.com
+        - address: https://api.atlassian.com
         - address: https://raw.githubusercontent.com
       client:
         - address: https://api.openai.com

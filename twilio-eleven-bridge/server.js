@@ -20,12 +20,17 @@ const ELEVEN_API_KEY = process.env.ELEVEN_API_KEY;
 const ELEVEN_SUBAGENT_ID = process.env.ELEVEN_SUBAGENT_ID;
 
 app.post('/elevenlabs-webhook', async (req, res) => {
-  const event = req.body;
+  try {
+    const event = req.body;
 
-  console.log('📥 Incoming webhook payload:');
-  console.log(JSON.stringify(event, null, 2));
+    console.log('📥 Incoming webhook payload:');
+    console.log(JSON.stringify(event, null, 2));
 
-  if (event.type === 'post_call_transcription') {
+    if (event.type !== 'post_call_transcription') {
+      console.log('ℹ️ Received event of type:', event.type);
+      return res.status(200).send('OK');
+    }
+
     console.log('✅ Conversation ended!');
 
     // Extract simplified transcript: only role and message
@@ -36,37 +41,120 @@ app.post('/elevenlabs-webhook', async (req, res) => {
 
     console.log('Extracted transcript:', simplifiedTranscript);
 
-    // Convert to string to send
+    // Convert to string for Jira
     const transcriptString = simplifiedTranscript
       .map(t => `${t.role}: ${t.message}`)
       .join('\n');
 
+    // --- Summarize transcript using AI ---
+    let summary = '';
     try {
-      const resForge = await fetch(FORGE_TRIGGER_URL, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${WEBHOOK_SECRET}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ transcript: transcriptString }),
-      });
-
-      const text = await resForge.text();
-      try {
-        const data = JSON.parse(text);
-        console.log('Forge webhook response:', data);
-      } catch {
-        console.log('Forge webhook response (non-JSON):', text);
-      }
-    } catch (err) {
-      console.error('Error calling Forge webhook:', err);
+      summary = await summarizeTranscript(transcriptString);
+    } catch {
+      summary = transcriptString.slice(0, 1000);
     }
-  } else {
-    console.log('ℹ️ Received event of type:', event.type);
-  }
 
-  res.status(200).send('OK');
+    // --- Fetch request types from Jira ---
+    let requestTypes = [
+      { name: "General Inquiry", id: "GEN" },
+      { name: "Billing", id: "BILL" },
+      { name: "Technical Support", id: "TECH" },
+    ];
+
+    if (JIRA_BASE && JIRA_EMAIL && JIRA_API_TOKEN) {
+      try {
+        const rtRes = await fetch(`${JIRA_BASE}/rest/servicedeskapi/servicedesk/${SERVICE_DESK_ID}/requesttype`, {
+          headers: {
+            Authorization: "Basic " + Buffer.from(`${JIRA_EMAIL}:${JIRA_API_TOKEN}`).toString("base64"),
+            Accept: "application/json"
+          }
+        });
+        if (rtRes.ok) {
+          const rtJson = await rtRes.json();
+          if (Array.isArray(rtJson.values)) {
+            requestTypes = rtJson.values.map(v => ({ name: v.name, id: v.id }));
+          }
+        }
+      } catch (err) { console.warn("⚠️ Error fetching Jira request types:", err); }
+    }
+
+    // --- Pick request type ---
+    let chosenRequestType = requestTypes[0];
+    try {
+      const pick = await pickRequestType(summary, requestTypes);
+      if (pick && pick.id) {
+        chosenRequestType = requestTypes.find(r => String(r.id) === String(pick.id)) || chosenRequestType;
+      }
+    } catch (err) { console.warn("⚠️ pickRequestType failed, using fallback:", err); }
+
+    // --- Generate field values ---
+    const requestTypeFields = [
+      { fieldId: "summary", name: "Summary", required: true, schema: { type: "string" } },
+      { fieldId: "description", name: "Description", required: false, schema: { type: "string" } },
+    ];
+
+    let fieldValues = {};
+    try {
+      fieldValues = await generateFieldValues(transcriptString, summary, requestTypeFields);
+    } catch {
+      fieldValues = { summary: `AI Voicemail: ${summary}`, description: transcriptString };
+    }
+
+    const formattedFieldValues = {};
+    for (const f of requestTypeFields) {
+      const val = fieldValues[f.fieldId];
+      formattedFieldValues[f.fieldId] = f.schema?.type === 'array' ? (Array.isArray(val) ? val : [val]) : val;
+    }
+
+    // --- Create Jira ticket ---
+    let issueKey = null;
+    if (JIRA_BASE && JIRA_EMAIL && JIRA_API_TOKEN) {
+      const basicAuth = "Basic " + Buffer.from(`${JIRA_EMAIL}:${JIRA_API_TOKEN}`).toString("base64");
+      try {
+        const createRes = await fetch(`${JIRA_BASE}/rest/servicedeskapi/request`, {
+          method: "POST",
+          headers: {
+            Authorization: basicAuth,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            serviceDeskId: SERVICE_DESK_ID,
+            requestTypeId: chosenRequestType.id,
+            requestFieldValues: formattedFieldValues
+          })
+        });
+
+        const createJson = await createRes.json();
+        if (createRes.ok && createJson.issueKey) issueKey = createJson.issueKey;
+        console.log("📝 Jira create response:", createJson);
+      } catch (err) { console.error("Failed creating Jira ticket:", err); }
+    }
+
+    // --- Save to SQLite ---
+    if (issueKey) {
+      const username = event.data.username || 'unknown_user';
+      // const row = await db.get('SELECT requests FROM user_requests WHERE username = ?', username);
+      let requests = row ? JSON.parse(row.requests) : [];
+      requests.push(issueKey);
+
+      await db.run(
+        `INSERT INTO user_requests (username, requests)
+         VALUES (?, ?)
+         ON CONFLICT(username) DO UPDATE SET requests=excluded.requests`,
+        username,
+        JSON.stringify(requests)
+      );
+
+      console.log(`📥 Added request ${issueKey} for user ${username}`);
+    }
+
+    res.status(200).json({ success: true, summary, fieldValues, requestType: chosenRequestType, issueKey });
+  } catch (err) {
+    console.error('🔥 Error in /elevenlabs-webhook:', err);
+    res.status(500).json({ error: err.message || String(err) });
+  }
 });
+
 
 app.post("/create-subagent", express.json({ limit: "10mb" }), async (req, res) => {
   try {

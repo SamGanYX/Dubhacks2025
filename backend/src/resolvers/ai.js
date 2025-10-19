@@ -16,7 +16,7 @@ export async function transcribeMp3(mp3Url) {
   const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
-    body: formData
+    body: formData,
   });
 
   const data = await response.json();
@@ -30,16 +30,16 @@ export async function summarizeTranscript(transcript) {
     method: "POST",
     headers: {
       Authorization: `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: "Summarize customer voicemails for Jira ticket creation." },
-        { role: "user", content: `Summarize this voicemail in one sentence:\n${transcript}` }
+        { role: "user", content: `Summarize this voicemail in one sentence:\n${transcript}` },
       ],
-      max_tokens: 80
-    })
+      max_tokens: 80,
+    }),
   });
 
   const data = await response.json();
@@ -53,7 +53,7 @@ export async function pickRequestType(summary, requestTypes) {
 You are an AI Jira router. Given a voicemail summary, pick the most appropriate Jira Service Request Type.
 
 Available request types:
-${requestTypes.map(t => `- ${t.name} (id: ${t.id})`).join('\n')}
+${requestTypes.map(t => `- ${t.name} (id: ${t.id})`).join("\n")}
 
 Respond ONLY with valid JSON:
 {"name": "<name>", "id": "<id>"}
@@ -82,11 +82,11 @@ Summary: "${summary}"
   }
 }
 
-// --- 4️⃣ Generate field values intelligently for ALL fields ---
+// --- 4️⃣ Generate field values ---
 export async function generateFieldValues(transcript, summary, requestTypeFields) {
-  const fieldsPrompt = requestTypeFields.map(f => {
-    return `- ${f.name} (id: ${f.fieldId}, required: ${f.required})`;
-  }).join("\n");
+  const fieldsPrompt = requestTypeFields
+    .map(f => `- ${f.name} (id: ${f.fieldId}, required: ${f.required})`)
+    .join("\n");
 
   const systemPrompt = `
 You are an AI assistant that fills Jira Service Request fields based on a voicemail transcript.
@@ -117,7 +117,7 @@ ${fieldsPrompt}
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
+        { role: "user", content: userPrompt },
       ],
       temperature: 0.3,
     }),
@@ -128,7 +128,6 @@ ${fieldsPrompt}
     return JSON.parse(data.choices[0].message.content);
   } catch (err) {
     console.warn("⚠️ Failed to parse AI field values, falling back to summary/description", err);
-    // fallback: fill summary & description only
     const fallback = {};
     for (const f of requestTypeFields) {
       if (f.fieldId === "summary") fallback.summary = `AI Voicemail: ${summary}`;
