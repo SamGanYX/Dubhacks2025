@@ -1,15 +1,8 @@
-# Dubhacks 2025 - JARVIS Platform
+# Dubhacks 2025 - JARVIS Voice Assistant
 
-A comprehensive multi-tenant platform that automatically converts customer voicemails into structured Jira Service Management tickets using AI.
+A multi-tenant platform that converts customer voicemails into structured Jira Service Management tickets using AI. This repo contains the original single-tenant Forge app and a multi-tenant SaaS platform.
 
-## 🎯 Project Overview
-
-This project consists of two main components:
-
-1. **Original Forge App** (`backend/`) - Single-tenant AI voicemail processor
-2. **Multi-Tenant Platform** (`platform/`) - SaaS platform for managing multiple companies
-
-## 🏗️ Project Structure
+# 🏗️ Project Structure
 
 ```
 Dubhacks2025/
@@ -20,139 +13,110 @@ Dubhacks2025/
 │   │   └── frontend/           # Forge UI components
 │   └── testForgeWebhook.js     # Testing utilities
 ├── platform/                   # Multi-Tenant SaaS Platform
-│   ├── backend/                # Node.js/Express API
+│   ├── backend/                # Node.js/Express API (SQLite)
 │   ├── frontend/               # React frontend
 │   └── README.md               # Platform documentation
-├── twilio-eleven-bridge/       # Twilio integration
+├── twilio-eleven-bridge/       # Twilio integration (optional)
 └── README.md                   # This file
 ```
 
-## 🚀 Quick Start
+## Project layout
 
-### Option 1: Run the Original Forge App
+Root:
+- backend/                    — Original Forge app (single-tenant)
+- platform/                   — Multi-tenant SaaS platform (frontend + backend)
+- twilio-eleven-bridge/       — Twilio integration
+- README.md                   — This file
 
+backend/ (Forge app)
+- manifest.yml
+- package.json
+- src/
+  - resolvers/
+  - frontend/
+- testForgeWebhook.js
+
+platform/
+- backend/                    — Node/Express API, services, routes, models
+- frontend/                   — React + Vite app
+- README.md                   — Platform-specific setup
+
+## Quick start
+
+Prerequisites (recommended)
+- Node.js 18+ (or as required in package.json)
+- npm or pnpm
+- For platform backend: MongoDB (local or hosted)
+- For Forge app: Atlassian Forge CLI and a target Atlassian product (for deploy/tunnel)
+- OpenAI API key (or relevant AI provider credentials)
+- Twilio credentials if using Twilio integration
+
+1) Run the original Forge app (single-tenant)
 ```bash
 cd backend
 npm install
-forge deploy --non-interactive --e development
+# Set required env vars (e.g., OPENAI_API_KEY) or configure via Forge as needed
+# Deploy & test with Forge CLI:
+# Install Forge CLI: npm install -g @forge/cli
+forge deploy --non-interactive --environment development
 forge tunnel
+# Use testForgeWebhook.js to simulate incoming webhook payloads if helpful:
+node testForgeWebhook.js
 ```
 
-### Option 2: Run the Multi-Tenant Platform
-
+2) Run the multi-tenant platform (SaaS)
 ```bash
 cd platform
-# Follow the detailed setup instructions in platform/README.md
+
+# Backend
+cd backend
+npm install
+# create .env with required vars (MONGODB_URI, JWT secrets, OPENAI_API_KEY, JIRA credentials, etc.)
+# If scripts/create-table.js exists for a service, run it if needed:
+node scripts/create-table.js
+npm run dev   # or npm start, see platform/backend/package.json
+
+# Frontend (new terminal)
+cd ../frontend
+npm install
+npm run dev   # Vite dev server
 ```
 
-## 🎯 Key Features
+See platform/README.md for detailed environment variables and deployment notes.
 
-### Original Forge App
-- ✅ AI-powered voicemail transcription
-- ✅ Smart Jira ticket creation
-- ✅ Customizable work types and request types
-- ✅ Priority and field value generation
+## What this repo provides
 
-### Multi-Tenant Platform
-- ✅ Company onboarding and management
-- ✅ Multi-tenant architecture
-- ✅ Custom Jira workspace configuration
-- ✅ Admin dashboard and analytics
-- ✅ Webhook-based processing
-- ✅ Scalable SaaS infrastructure
+- Original Forge App (backend/) — AI voicemail transcription and Jira ticket creation for a single company via Atlassian Forge.
+- Multi-Tenant Platform (platform/) — API, database-backed multi-tenant orchestration, React frontend, onboarding flows, and admin features.
+- Twilio integration scaffolding (twilio-eleven-bridge/) for receiving voicemails and media.
 
-## 🔧 Technology Stack
+## Key features
 
-- **AI Processing**: OpenAI GPT-4o-mini, Whisper
-- **Backend**: Node.js, Express.js, MongoDB
-- **Frontend**: React, Vite, Tailwind CSS
-- **Integration**: Atlassian Forge, Jira Service Management
-- **Authentication**: JWT, bcrypt
-- **Validation**: Joi, React Hook Form
+- AI-based voicemail transcription and ticket generation
+- Multi-tenant onboarding and company management
+- Webhook-driven processing and integrations (Jira, Twilio)
+- React + Vite frontend with Tailwind CSS
+- Node/Express backend with MongoDB for persistence
 
-## 📊 Architecture Comparison
+## Development notes
 
-| Feature | Original Forge App | Multi-Tenant Platform |
-|---------|-------------------|----------------------|
-| **Scope** | Single company | Multiple companies |
-| **Deployment** | Forge Cloud | Custom infrastructure |
-| **UI** | Forge UI Kit | Custom React app |
-| **Database** | None (stateless) | MongoDB |
-| **Authentication** | Forge built-in | Custom JWT |
-| **Scaling** | Per-app instance | Horizontal scaling |
-| **Customization** | Limited | Full control |
+- Backend services under platform/backend use controllers, services, and models. Inspect src/ for routes and service implementations (aiService.js, jiraService.js).
+- The Forge app's AI logic lives in backend/src/resolvers/.
+- Use testForgeWebhook.js in backend/ to simulate Forge/webhook inputs during local development.
 
-## 🎯 Use Cases
+## Roadmap (high level)
 
-### Original Forge App
-- **Single company** wanting to automate voicemail processing
-- **Quick setup** with minimal configuration
-- **Forge ecosystem** integration
-- **Proof of concept** or MVP
+- Phase 1: Foundation (done) — single-tenant Forge app, multi-tenant architecture, basic onboarding
+- Phase 2: Enhancement — real Jira workspace creation, analytics, custom branding
+- Phase 3: Enterprise — SSO, compliance, white-labeling
 
-### Multi-Tenant Platform
-- **SaaS business** serving multiple companies
-- **Enterprise customers** with complex requirements
-- **Custom branding** and white-labeling
-- **Advanced analytics** and reporting
-- **API access** for integrations
-
-## 🚀 Getting Started
-
-### For the Original Forge App:
-1. Set up Forge CLI
-2. Deploy the app to your Jira instance
-3. Configure OpenAI API key
-4. Test with sample voicemails
-
-### For the Multi-Tenant Platform:
-1. Set up MongoDB
-2. Configure environment variables
-3. Install dependencies
-4. Start development servers
-5. Create your first company
-
-## 📈 Development Roadmap
-
-### Phase 1: Foundation ✅
-- [x] Original Forge app with AI processing
-- [x] Multi-tenant platform architecture
-- [x] Company onboarding system
-- [x] Basic admin dashboard
-
-### Phase 2: Enhancement 🚧
-- [ ] Real Jira workspace creation
-- [ ] Advanced analytics
-- [ ] Custom branding
-- [ ] API documentation
-
-### Phase 3: Enterprise 🎯
-- [ ] SSO integration
-- [ ] Compliance features
-- [ ] White-label options
-- [ ] Advanced security
-
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+3. Implement and test changes
+4. Submit a pull request with a clear description
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License.
-
-## 🆘 Support
-
-For questions or issues:
-- Check the individual README files in each component
-- Create an issue in the repository
-- Review the troubleshooting sections
-
----
-
-**Built for Dubhacks 2025** 🎉
-
-*Transforming voicemails into actionable Jira tickets with the power of AI*
+MIT
