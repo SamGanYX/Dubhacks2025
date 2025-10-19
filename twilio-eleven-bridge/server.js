@@ -37,7 +37,7 @@ app.post('/elevenlabs-webhook', async (req, res) => {
 
     console.log('✅ Conversation ended!');
 
-    // Extract simplified transcript: only role and message
+    // Extract simplified transcript
     const simplifiedTranscript = event.data.transcript.map(turn => ({
       role: turn.role,
       message: turn.message
@@ -45,7 +45,6 @@ app.post('/elevenlabs-webhook', async (req, res) => {
 
     console.log('Extracted transcript:', simplifiedTranscript);
 
-    // Convert to string for Jira
     const transcriptString = simplifiedTranscript
       .map(t => `${t.role}: ${t.message}`)
       .join('\n');
@@ -58,7 +57,7 @@ app.post('/elevenlabs-webhook', async (req, res) => {
       summary = transcriptString.slice(0, 1000);
     }
 
-    // --- Fetch request types from Jira ---
+    // --- Fetch request types ---
     let requestTypes = [
       { name: "General Inquiry", id: "GEN" },
       { name: "Billing", id: "BILL" },
@@ -79,7 +78,9 @@ app.post('/elevenlabs-webhook', async (req, res) => {
             requestTypes = rtJson.values.map(v => ({ name: v.name, id: v.id }));
           }
         }
-      } catch (err) { console.warn("⚠️ Error fetching Jira request types:", err); }
+      } catch (err) {
+        console.warn("⚠️ Error fetching Jira request types:", err);
+      }
     }
 
     // --- Pick request type ---
@@ -89,7 +90,9 @@ app.post('/elevenlabs-webhook', async (req, res) => {
       if (pick && pick.id) {
         chosenRequestType = requestTypes.find(r => String(r.id) === String(pick.id)) || chosenRequestType;
       }
-    } catch (err) { console.warn("⚠️ pickRequestType failed, using fallback:", err); }
+    } catch (err) {
+      console.warn("⚠️ pickRequestType failed, using fallback:", err);
+    }
 
     // --- Generate field values ---
     const requestTypeFields = [
@@ -107,7 +110,9 @@ app.post('/elevenlabs-webhook', async (req, res) => {
     const formattedFieldValues = {};
     for (const f of requestTypeFields) {
       const val = fieldValues[f.fieldId];
-      formattedFieldValues[f.fieldId] = f.schema?.type === 'array' ? (Array.isArray(val) ? val : [val]) : val;
+      formattedFieldValues[f.fieldId] = f.schema?.type === 'array'
+        ? (Array.isArray(val) ? val : [val])
+        : val;
     }
 
     // --- Create Jira ticket ---
@@ -128,10 +133,24 @@ app.post('/elevenlabs-webhook', async (req, res) => {
           })
         });
 
-        const createJson = await createRes.json();
-        if (createRes.ok && createJson.issueKey) issueKey = createJson.issueKey;
-        console.log("📝 Jira create response:", createJson);
-      } catch (err) { console.error("Failed creating Jira ticket:", err); }
+        // ✅ Parse response safely (avoid "undefined" JSON error)
+        const text = await createRes.text();
+        let createJson;
+        try {
+          createJson = text ? JSON.parse(text) : {};
+        } catch {
+          console.warn("⚠️ Jira returned non-JSON response:", text);
+          createJson = { raw: text };
+        }
+
+        if (createRes.ok && createJson.issueKey) {
+          issueKey = createJson.issueKey;
+        } else {
+          console.log("📝 Jira create response (non-OK):", createJson);
+        }
+      } catch (err) {
+        console.error("Failed creating Jira ticket:", err);
+      }
     }
 
     // --- Save to SQLite ---
@@ -152,12 +171,19 @@ app.post('/elevenlabs-webhook', async (req, res) => {
       console.log(`📥 Added request ${issueKey} for user ${username}`);
     }
 
-    res.status(200).json({ success: true, summary, fieldValues, requestType: chosenRequestType, issueKey });
+    res.status(200).json({
+      success: true,
+      summary,
+      fieldValues,
+      requestType: chosenRequestType,
+      issueKey
+    });
   } catch (err) {
     console.error('🔥 Error in /elevenlabs-webhook:', err);
     res.status(500).json({ error: err.message || String(err) });
   }
 });
+
 
 
 app.post("/create-subagent", express.json({ limit: "10mb" }), async (req, res) => {
