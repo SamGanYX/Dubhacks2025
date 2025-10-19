@@ -6,8 +6,7 @@ const WEBHOOK_SECRET = "s3cureTw1l1o123!";
 
 // Example test transcript
 const testTranscript = `
-Hi, I need urgent help, I lost my credit card!
-Please assist ASAP.
+Hi, I am wondering if you can help me with my account? I am having trouble logging in.
 `;
 
 async function testWebhook() {

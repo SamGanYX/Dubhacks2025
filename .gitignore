@@ -1,0 +1,6 @@
+platform/node_modules/
+node_modules/
+platform/backend/node_modules
+platform/frontend/node_modules
+.DS_Store
+.env

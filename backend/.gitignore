@@ -6,7 +6,10 @@
 # Node artifact files
 node_modules/
 dist/
-
+**/node_modules
+platform/node_modules/
+platform/backend/node_modules/
+platform/frontend/node_modules/
 # Compiled Java class files
 *.class
 
@@ -50,3 +53,6 @@ Thumbs.db
 
 
 /.forge/
+
+..env
+.env
