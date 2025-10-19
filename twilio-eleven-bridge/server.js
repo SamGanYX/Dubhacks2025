@@ -3,6 +3,9 @@ import bodyParser from 'body-parser';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import { summarizeTranscript, pickRequestType, generateFieldValues } from "./ai.js";
+import db from './db.js';
+import * as helpers from './helper.js';
+
 
 dotenv.config();
 
@@ -18,6 +21,7 @@ const JIRA_API_TOKEN = process.env.JIRA_API_TOKEN;
 const SERVICE_DESK_ID = process.env.SERVICE_DESK_ID || "2";
 const ELEVEN_API_KEY = process.env.ELEVEN_API_KEY;
 const ELEVEN_SUBAGENT_ID = process.env.ELEVEN_SUBAGENT_ID;
+
 
 app.post('/elevenlabs-webhook', async (req, res) => {
   try {
@@ -133,7 +137,7 @@ app.post('/elevenlabs-webhook', async (req, res) => {
     // --- Save to SQLite ---
     if (issueKey) {
       const username = event.data.username || 'unknown_user';
-      // const row = await db.get('SELECT requests FROM user_requests WHERE username = ?', username);
+      const row = await db.get('SELECT requests FROM user_requests WHERE username = ?', username);
       let requests = row ? JSON.parse(row.requests) : [];
       requests.push(issueKey);
 
@@ -248,6 +252,50 @@ app.post("/create-subagent", express.json({ limit: "10mb" }), async (req, res) =
   }
 });
 
+// --- Helper: fetch Jira issue details ---
+async function fetchIssueDetails(issueKey) {
+  const basicAuth = "Basic " + Buffer.from(`${JIRA_EMAIL}:${JIRA_API_TOKEN}`).toString("base64");
+  try {
+    const issueRes = await fetch(`${JIRA_BASE}/rest/api/3/issue/${issueKey}?fields=summary,status,assignee,description`, {
+      headers: { Authorization: basicAuth, Accept: "application/json" },
+    });
+    if (!issueRes.ok) return { id: issueKey, error: "Failed to fetch issue" };
+    const issueJson = await issueRes.json();
+
+    const commentsRes = await fetch(`${JIRA_BASE}/rest/api/3/issue/${issueKey}/comment`, {
+      headers: { Authorization: basicAuth, Accept: "application/json" },
+    });
+    const commentsJson = commentsRes.ok ? await commentsRes.json() : { comments: [] };
+
+    return {
+      id: issueKey,
+      summary: issueJson.fields.summary,
+      description: issueJson.fields.description,
+      status: issueJson.fields.status?.name,
+      assignee: issueJson.fields.assignee?.displayName || null,
+      comments: commentsJson.comments || [],
+    };
+  } catch (err) {
+    console.error(`Failed fetching issue ${issueKey}:`, err);
+    return { id: issueKey, error: String(err) };
+  }
+}
+
+// --- Get all requests for a user ---
+app.get("/user-requests/:username", (req, res) => {
+  const { username } = req.params;
+  db.get("SELECT requests FROM user_requests WHERE username = ?", [username], async (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: "User not found" });
+
+    const requestIds = JSON.parse(row.requests);
+    const fullRequestData = [];
+    for (const issueKey of requestIds) {
+      fullRequestData.push(await fetchIssueDetails(issueKey));
+    }
+    res.json({ username, requests: fullRequestData });
+  });
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

@@ -1,10 +1,9 @@
 // populateDummyData.js
-const db = require("./db");
+import db from './db.js';
 
 // Sample data
 const dummyData = {
-  "Alice": ["UTS-11", "UTS-12"],
-  "Bob": ["UTS-13"],
+  "Bob": ["UTS-61"],
 };
 
 // Insert or update users
@@ -15,14 +14,19 @@ for (const [username, requests] of Object.entries(dummyData)) {
      ON CONFLICT(username) DO UPDATE SET requests=excluded.requests`,
     [username, jsonRequests],
     (err) => {
-      if (err) console.error("Error inserting", username, err);
-      else console.log("Inserted/updated user:", username);
+      if (err) {
+        console.error("Error inserting", username, err);
+      } else {
+        console.log("Inserted/updated user:", username);
+      }
     }
   );
 }
 
-// Close DB after all inserts
-db.close((err) => {
-  if (err) console.error("Error closing DB", err);
-  else console.log("Database closed successfully");
-});
+// Close DB after all inserts (add slight delay to allow async queries to finish)
+setTimeout(() => {
+  db.close((err) => {
+    if (err) console.error("Error closing DB", err);
+    else console.log("Database closed successfully");
+  });
+}, 500);

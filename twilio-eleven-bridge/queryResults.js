@@ -1,5 +1,5 @@
 // queryRequests.js
-const db = require("./db");
+import db from './db.js';
 
 // Example: get requests for a user
 function getRequests(username) {
